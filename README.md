@@ -1,12 +1,24 @@
-# cpX x402 Pay
+# cpX x402 Pay + Earn
 
-**XRPL-native x402 payments for autonomous AI agents.**
+**XRPL-native payment infrastructure for autonomous AI agents.**
+
+**One SDK. Two capabilities. Three XRPL assets.**
+
+`npm install @cloudpayx/x402-pay`
 
 cpX x402 Pay enables autonomous AI agents to purchase x402-protected services using XRP, RLUSD, and Circle USDC on the XRP Ledger.
 
 The SDK provides wallet-agnostic signing integration, explicit payment authorization, spending controls, guarded transactions, persistent payment tracking, and validated-ledger settlement reconciliation.
 
 Self-funded agents can integrate without a cloudpayX account, dashboard, or mandatory wallet provider.
+
+## Developer and agent integration guides
+
+- [Quick Start](docs/QUICKSTART.md)
+- [API Reference](docs/API.md)
+- [Agent Instructions](AGENTS.md)
+- [Machine-readable Manifest](docs/agent-manifest.json)
+- [Earn HTTP Example](examples/earn-http-server.mjs)
 
 ## Installation
 
@@ -33,6 +45,16 @@ Validation confirms the guarded configuration structure. It does not authorize a
 
 For live integration, replace the placeholders with a compatible XRPL signer, real payment details, and your own authorization policy. Use `executeSecureNodePurchase()` for execution and `reconcileSecureNodePurchase()` for settlement verification.
 
+## cpX x402 Earn — Agent monetization
+
+Turn agent capabilities into paid services with XRPL-native settlement.
+
+cpX x402 Earn verifies payment requirements, enforces persistent replay protection, checks transaction identity, and independently confirms XRPL ledger settlement before delivering protected resources.
+
+**Security by design:** Unsupported payment-processing sequences are rejected rather than permitted to bypass settlement verification.
+
+The public SDK exposes `createCpXAgentEarn()` for configuring a protected XRPL payment endpoint.
+
 ## Capabilities
 
 - **Autonomous agent payments:** Agents can purchase compatible x402 resources using their own XRPL signing infrastructure.
@@ -45,6 +67,39 @@ For live integration, replace the placeholders with a compatible XRPL signer, re
 - **Settlement verification:** Reconciliation against validated XRPL transaction evidence.
 - **Protected resource access:** HTTPS validation, anti-SSRF protections, and redirect restrictions.
 
+## Optional cloudpayX paid APIs
+
+The cpX x402 Pay + Earn SDK is free. Developers and autonomous agents can optionally use cloudpayX-hosted services on a pay-per-call basis, without a monthly subscription.
+
+These services are hosted APIs, not local SDK exports.
+
+### Agent intelligence APIs
+
+| Service | Endpoint | Price |
+| --- | --- | ---: |
+| Arbitrage Check | /agent/v3/arbitrage-check | $0.01 |
+| Risk Check | /agent/risk-check | $0.02 |
+| Ledger Status | /agent/ledger-status | $0.005 |
+| Token Analysis | /agent/token-analysis | $0.005 |
+| Asset Analysis | /agent/v3/asset-analysis | $0.005 |
+| Stablecoin Route | /agent/v3/stablecoin-route | $0.01 |
+| Wallet Vibe Check | /agent/v3/wallet-vibe-check | $0.01 |
+| Transaction Repair | /agent/repair | $0.10 |
+
+### Connector-backed business APIs
+
+| Capability | Endpoint | Price |
+| --- | --- | ---: |
+| availability.check | /agent/v3/availability-check | $0.01 |
+| price.quote | /agent/v3/price-quote | $0.01 |
+| order.prepare | /agent/v3/order-prepare | $0.01 |
+
+Business APIs use configured HTTP providers for authorized inventory, pricing, and order data. If no matching provider is available, the API returns an explicit unavailable-provider response. Order preparation does not commit a purchase or authorize payment.
+
+API host: https://api.cloudpayxagent.xyz
+
+Paid endpoints use x402 payment requirements. Inspect the payment challenge for current settlement options. The hosted API payment options are separate from the XRPL-only cpX x402 Pay SDK.
+
 ## Public SDK API
 
 Import the guarded payment operations from `@cloudpayx/x402-pay`.
@@ -54,6 +109,7 @@ Import the guarded payment operations from `@cloudpayx/x402-pay`.
 | `validateSecureNodePurchase` | Validate a proposed guarded payment configuration. |
 | `executeSecureNodePurchase` | Execute a policy-controlled XRPL x402 purchase. |
 | `reconcileSecureNodePurchase` | Reconcile an existing purchase against validated XRPL ledger evidence. |
+| `createCpXAgentEarn` | Protect and monetize agent services with verified XRPL settlement. |
 
 Payment execution requires compatible signing infrastructure and application-supplied authorization and policy configuration.
 
@@ -94,3 +150,5 @@ Issued-token payments require applicable trustlines, sufficient balances, and XR
 - XRPL x402 specification: https://github.com/x402-foundation/x402/blob/main/specs/schemes/exact/scheme_exact_xrpl.md
 
 **cloudpayX | Infrastructure for the autonomous economy**
+
+Agent discovery: https://cloudpayx.com/agents
