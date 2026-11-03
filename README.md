@@ -12,6 +12,17 @@ The SDK provides wallet-agnostic signing integration, explicit payment authoriza
 
 Self-funded agents can integrate without a cloudpayX account, dashboard, or mandatory wallet provider.
 
+## Release and source status
+
+The current published SDK is `@cloudpayx/x402-pay@0.2.10`.
+
+This repository's `main` branch still contains older SDK source code.
+For the supported v0.2.10 public API, use the published npm package
+and its bundled TypeScript declarations.
+
+The v0.2.10 documentation describes the published package, not
+necessarily the implementation on this branch.
+
 ## Developer and agent integration guides
 
 - [Quick Start](docs/QUICKSTART.md)
@@ -66,6 +77,10 @@ The public SDK exposes `createCpXAgentEarn()` for configuring a protected XRPL p
 - **Durable payment records:** Persistent journals and duplicate-payment protections.
 - **Settlement verification:** Reconciliation against validated XRPL transaction evidence.
 - **Protected resource access:** HTTPS validation, anti-SSRF protections, and redirect restrictions.
+
+## HTTP method support
+
+cpX x402 Pay supports GET and POST requests to compatible x402-protected services. The SDK preserves the original HTTP method when retrying requests after an HTTP 402 payment challenge.
 
 ## Optional cloudpayX paid APIs
 
