@@ -129,9 +129,109 @@ export function createPersistentSpendingBudget(journalDir) {
       await syncDirectory(dir);
     }
   }
+
+  // Only the durable lifecycle may authorize this operation.
+  // The original intent remains recorded forever.
+  async function releaseUnsigned({intent, journal}) {
+    check(record(intent) &&
+      typeof intent.intentId === 'string' &&
+      typeof intent.payer === 'string' &&
+      typeof journal?.load === 'function',
+      'CPX_RELEASE_INVALID_REQUEST');
+
+    await ensurePrivateDir();
+
+    const file = fileFor(intent.payer);
+    const lock = file + '.lock';
+
+    let lockFd;
+    try {
+      lockFd = await open(lock, 'wx', 0o600);
+    } catch (err) {
+      if (err?.code === 'EEXIST')
+        throw new Error('CPX_BUDGET_LOCKED_FAIL_CLOSED');
+      throw err;
+    }
+
+    try {
+      await lockFd.writeFile(String(process.pid));
+      await lockFd.sync();
+
+      const state = JSON.parse(await readFile(file, 'utf8'));
+
+      check(state?.version === 1 &&
+        state.payer === intent.payer &&
+        record(state.caps) &&
+        record(state.reserved) &&
+        record(state.intentIds),
+        'CPX_BUDGET_CORRUPT');
+
+      const idHash = createHash('sha256')
+        .update(intent.intentId).digest('hex');
+
+      const entry = state.intentIds[idHash];
+
+      check(record(entry) &&
+        entry.releasedUnsigned !== true &&
+        CAP_KEYS.includes(entry.asset) &&
+        DROPS.test(entry.units) &&
+        DROPS.test(entry.feeDrops),
+        'CPX_RELEASE_INTENT_NOT_RESERVED');
+
+      const previous = await journal.load(intent.intentId);
+
+      check(previous.status === 'RESERVED_OUTCOME_UNKNOWN' &&
+        previous.payer === intent.payer &&
+        previous.seller === intent.seller &&
+        previous.asset === intent.asset &&
+        previous.amount === intent.amount &&
+        previous.resource === intent.resource &&
+        !previous.transactionHash &&
+        !previous.expected,
+        'CPX_RELEASE_NOT_PROVEN_UNSIGNED');
+
+      const units = BigInt(entry.units);
+      const fee = BigInt(entry.feeDrops);
+
+      const xrpExposure =
+        fee + (entry.asset === 'xrpDrops' ? units : 0n);
+
+      check(BigInt(state.reserved.xrpDrops) >= xrpExposure &&
+        (entry.asset === 'xrpDrops' ||
+          BigInt(state.reserved[entry.asset]) >= units),
+        'CPX_RELEASE_BUDGET_UNDERFLOW');
+
+      if (entry.asset !== 'xrpDrops') {
+        state.reserved[entry.asset] = (
+          BigInt(state.reserved[entry.asset]) - units
+        ).toString();
+      }
+
+      state.reserved.xrpDrops = (
+        BigInt(state.reserved.xrpDrops) - xrpExposure
+      ).toString();
+
+      state.intentIds[idHash] = {
+        ...entry,
+        releasedUnsigned: true
+      };
+
+      await writeAtomic(dir, file, state);
+
+      return {
+        status: 'UNSIGNED_CAPACITY_RELEASED',
+        intentId: intent.intentId
+      };
+    } finally {
+      await lockFd.close();
+      await unlink(lock);
+      await syncDirectory(dir);
+    }
+  }
+
   async function inspect(payer) {
     await ensurePrivateDir();
     return JSON.parse(await readFile(fileFor(payer), 'utf8'));
   }
-  return {reserve, inspect};
+  return {reserve, inspect, releaseUnsigned};
 }

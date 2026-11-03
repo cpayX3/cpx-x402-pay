@@ -48,9 +48,17 @@ export function validateSecureNodePurchase(options) {
       typeof oneShot.maxSendMax === 'string'), 'CPX_ASSET_GUARD_REQUIRED');
   requireValue(object(request) && request.url === intent.resource && object(request.init),
     'CPX_RESOURCE_MISMATCH');
-  requireValue((request.init.method ?? 'GET').toUpperCase() === 'POST', 'CPX_POST_REQUIRED');
-  requireValue(typeof request.init.body === 'string' && request.init.body.length <= 262144,
-    'CPX_REQUEST_BODY_REQUIRED');
+  const method = request.init.method;
+  requireValue(method === 'GET' || method === 'POST',
+    'CPX_HTTP_METHOD_UNSUPPORTED');
+  if (method === 'GET') {
+    requireValue(!OWN.call(request.init, 'body'),
+      'CPX_GET_BODY_FORBIDDEN');
+  } else {
+    requireValue(typeof request.init.body === 'string' &&
+      request.init.body.length <= 262144,
+      'CPX_REQUEST_BODY_REQUIRED');
+  }
   requireValue(Number.isSafeInteger(timeoutMs) && timeoutMs > 0 && timeoutMs <= 60000,
     'CPX_INVALID_HTTP_TIMEOUT');
   requireValue(!OWN.call(request.init, 'signal') || request.init.signal instanceof AbortSignal,
@@ -79,6 +87,8 @@ export async function executeSecureNodePurchase(options) {
     intent: options.intent,
     reserveBudget: intent => budget.reserve({intent,issuer:options.oneShot.issuer,caps:options.budgetCaps,
       maxFeeDrops:options.maxFeeDrops,maxSendMax:options.oneShot.maxSendMax}),
+    releaseUnsigned: ({intent, journal}) =>
+      budget.releaseUnsigned({intent, journal}),
     signer: options.signer,
     hashSignedTx: trusted.hashSignedTx,
     maxFeeDrops: options.maxFeeDrops,

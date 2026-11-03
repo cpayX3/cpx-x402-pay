@@ -10,6 +10,7 @@ type Envelope = {
     extra?: {
       sourceTag?: number;
       invoiceId?: string;
+      issuer?: string;
       areFeesSponsored?: boolean;
     };
   };
@@ -68,7 +69,15 @@ export function createCpXWireFetch(
       payment?.x402Version === 2 &&
       accepted?.scheme === "exact" &&
       accepted?.network === "xrpl:0" &&
-      accepted?.asset === "XRP" &&
+      (accepted?.asset === "XRP" ||
+       (accepted?.asset ===
+        "524C555344000000000000000000000000000000" &&
+        extra?.issuer ===
+        "rMxCKbEDwqr76QuheSUMdEGf4B9xJ8m5De") ||
+       (accepted?.asset ===
+        "5553444300000000000000000000000000000000" &&
+        extra?.issuer ===
+        "rGm7WCVp9gb4jZHWTEtGUr4dd74z2XuWhE")) &&
       extra?.sourceTag === 804681468;
 
     // Existing RLUSD and USDC envelopes remain unchanged.
@@ -85,7 +94,10 @@ export function createCpXWireFetch(
       typeof accepted?.payTo !== "string" ||
       !/^r[1-9A-HJ-NP-Za-km-z]{24,34}$/.test(accepted.payTo) ||
       typeof accepted?.amount !== "string" ||
-      !/^[1-9][0-9]*$/.test(accepted.amount) ||
+      !(accepted.asset === "XRP"
+        ? /^[1-9][0-9]*$/.test(accepted.amount)
+        : /^(?:0|[1-9][0-9]*)(?:\.[0-9]+)?$/.test(accepted.amount) &&
+          /[1-9]/.test(accepted.amount)) ||
       !payload ||
       typeof payload.signedTxBlob !== "string" ||
       !/^(?:[0-9a-fA-F]{2})+$/.test(payload.signedTxBlob) ||

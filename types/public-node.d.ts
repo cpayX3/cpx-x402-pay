@@ -23,7 +23,9 @@ export type SecureNodePurchaseOptions = {
   maxFeeDrops: string;
   request: {
     url: string;
-    init: { method: 'POST'; body: string; headers?: HeadersInit; signal?: AbortSignal };
+    init:
+      | { method: 'GET'; body?: never; headers?: HeadersInit; signal?: AbortSignal }
+      | { method: 'POST'; body: string; headers?: HeadersInit; signal?: AbortSignal };
   };
   timeoutMs?: number;
 };
@@ -53,3 +55,22 @@ export declare function reconcileSecureNodePurchase(options: {journalDir: string
   feeDrops: string;
   invoiceID: string;
 }>;
+
+export declare function createCpXAgentEarn(options: {
+  walletAddress: string;
+  asset: "XRP" | "RLUSD" | "USDC";
+  amount: string;
+  invoiceId: string;
+  destinationTag: number;
+  facilitatorUrl: string;
+  journalDir: string;
+  method?: "GET" | "POST";
+  path?: string;
+  onPaid: (
+    request: Request,
+    settlement: unknown
+  ) => Promise<Response> | Response;
+}): {
+  initialize(): Promise<unknown>;
+  handle(request: Request): Promise<Response>;
+};

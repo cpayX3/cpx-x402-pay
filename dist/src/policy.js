@@ -55,8 +55,7 @@ export function createAgentPaymentGate(config) {
                 return { allowed: false, reason: 'CPX_UNSUPPORTED_PAYMENT' };
             }
             // The XRPL x402 exact scheme requires this to be explicitly false.
-            if (req.extra?.areFeesSponsored !== false &&
-                !(config.legacyT54Offer === true && req.extra?.areFeesSponsored === undefined)) {
+            if (req.extra?.areFeesSponsored !== false) {
                 return { allowed: false, reason: 'CPX_INVALID_FEE_TERMS' };
             }
             if (req.extra?.assetTransferMethod !== undefined &&

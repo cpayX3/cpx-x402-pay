@@ -6,7 +6,7 @@ export type ExpectedXrplSettlement = {
     destinationTag?: number;
     sourceTag?: number;
     /** SHA-256(invoiceId string), upper-case 64 hex, bound by the signing guard. */
-    invoiceID: string;
+    invoiceID?: string;
     asset: string;
     issuer?: string;
     amount: string;
@@ -14,11 +14,11 @@ export type ExpectedXrplSettlement = {
 };
 /** Throws on any uncertain or unexpected result. Never authorizes retry. */
 export declare function verifyValidatedXrplSettlement(payload: unknown, expected: ExpectedXrplSettlement): Readonly<{
+    invoiceID?: string | undefined;
     status: "VALIDATED_SUCCESS";
     transactionHash: string;
     ledgerIndex: number;
     deliveredAmount: string;
     asset: string;
     feeDrops: string;
-    invoiceID: string;
 }>;

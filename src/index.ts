@@ -76,10 +76,24 @@ export function createCpXX402AgentPay(options: {
             throw new Error("CPX_INVALID_LEDGER_EXPIRY");
           }
 
-          return await ledger.autofill({
+          const maxFeeDrops = options.oneShot?.maxFeeDrops;
+
+          const prepared = await ledger.autofill({
             ...transaction,
             LastLedgerSequence: expiry ?? maxLedger
           });
+
+          const calculatedFee = prepared.Fee;
+
+          if (
+            typeof calculatedFee !== "string" ||
+            !/^[1-9][0-9]*$/.test(calculatedFee) ||
+            BigInt(calculatedFee) > BigInt(maxFeeDrops ?? "100")
+          ) {
+            throw new Error("CPX_FINAL_FEE_EXCEEDS_LIMIT");
+          }
+
+          return prepared;
         } finally {
           await ledger.disconnect();
         }
@@ -87,7 +101,7 @@ export function createCpXX402AgentPay(options: {
 
       wsUrlByNetwork: { 'xrpl:0': 'wss://s1.ripple.com' },
       // Never let the guarded signer authorize a TicketCreate transaction.
-      ...(guarded ? { ticketCreateCount: 0 } : {})
+      ticketCreateCount: 0
     })
   );
   client.onBeforePaymentCreation(async ({ paymentRequired, selectedRequirements }) => {
