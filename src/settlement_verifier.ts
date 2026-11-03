@@ -14,7 +14,7 @@ export type ExpectedXrplSettlement = {
   destinationTag?: number;
   sourceTag?: number;
   /** SHA-256(invoiceId string), upper-case 64 hex, bound by the signing guard. */
-  invoiceID: string;
+  invoiceID?: string;
   asset: string; // XRP, Ripple RLUSD currency, or Circle USDC currency
   issuer?: string;
   amount: string; // XRP: drops. Issued token: decimal value.
@@ -41,7 +41,7 @@ export function verifyValidatedXrplSettlement(payload: unknown, expected: Expect
   const data = record(outer?.result) ?? outer;
   required(data !== undefined, 'CPX_BAD_LEDGER_RESPONSE');
   required(HASH.test(expected.transactionHash), 'CPX_BAD_EXPECTED_TX_HASH');
-  required(HASH.test(expected.invoiceID), 'CPX_BAD_EXPECTED_INVOICE');
+  required(expected.invoiceID === undefined || HASH.test(expected.invoiceID), 'CPX_BAD_EXPECTED_INVOICE');
   required(typeof expected.payer === 'string' && expected.payer.length > 0 &&
     typeof expected.recipient === 'string' && expected.recipient.length > 0,
     'CPX_BAD_EXPECTED_ADDRESSES');
@@ -64,7 +64,7 @@ export function verifyValidatedXrplSettlement(payload: unknown, expected: Expect
   required(tx.Destination === expected.recipient, 'CPX_WRONG_RECIPIENT');
   required(tx.DestinationTag === expected.destinationTag, 'CPX_WRONG_TAG');
   required(tx.SourceTag === expected.sourceTag, 'CPX_WRONG_SOURCE_TAG');
-  required(typeof tx.InvoiceID === 'string' && tx.InvoiceID.toUpperCase() === expected.invoiceID.toUpperCase(), 'CPX_WRONG_INVOICE');
+  required(expected.invoiceID === undefined ? tx.InvoiceID === undefined : typeof tx.InvoiceID === 'string' && tx.InvoiceID.toUpperCase() === expected.invoiceID.toUpperCase(), 'CPX_WRONG_INVOICE');
   required(typeof tx.Fee === 'string' && DROPS.test(tx.Fee) &&
     BigInt(tx.Fee) > 0n && BigInt(tx.Fee) <= BigInt(expected.maxFeeDrops), 'CPX_FEE_MISMATCH');
   required(typeof data.ledger_index === 'number' && Number.isSafeInteger(data.ledger_index) &&
@@ -92,6 +92,6 @@ export function verifyValidatedXrplSettlement(payload: unknown, expected: Expect
     deliveredAmount: expected.amount,
     asset: expected.asset,
     feeDrops: tx.Fee as string,
-    invoiceID: expected.invoiceID.toUpperCase()
+    ...(expected.invoiceID === undefined ? {} : { invoiceID: expected.invoiceID.toUpperCase() })
   });
 }
