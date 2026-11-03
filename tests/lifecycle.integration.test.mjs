@@ -41,7 +41,7 @@ function createHarness(journal, overrides={}){
       if(overrides.throwBeforeSign)throw new Error('FETCH_TIMEOUT_BEFORE_SIGN');
       await guard.signer.sign({...tx});
       if(overrides.throwAfterSign)throw new Error('FETCH_TIMEOUT_AFTER_SIGN');
-      return {status:200,headers:{has:()=>true}};
+      return new Response('', {status:200,headers:{'payment-response':'test-receipt'}});
     }};
   };
   const run=(id=intentId)=>executeDurablePurchase({journal,intent:{...intent,intentId:id},signer,

@@ -18,7 +18,7 @@ test('strict mode still rejects t54 absence of fee sponsorship flag',async()=>{
  const s=signer();await assert.rejects(s.arm(quote),/CPX_NOT_XRPL_EXACT/);assert.equal(s.signed.length,0);
 });
 test('opt-in signs identical XRP amount, recipient, invoice and fixed sourceTag',async()=>{
- const s=signer({legacyT54Offer:true});await s.arm(quote);
+ const s=signer();await s.arm({...quote,extra:{...quote.extra,areFeesSponsored:false}});
  await s.signer.sign({...tx,NetworkID:undefined});
  assert.equal(s.signed.length,1);
  assert.equal(s.signed[0].SourceTag,804681468);
@@ -27,12 +27,12 @@ test('opt-in signs identical XRP amount, recipient, invoice and fixed sourceTag'
  assert.equal(Object.hasOwn(s.signed[0],'NetworkID'),false);
 });
 test('opt-in rejects malicious SourceTag override',async()=>{
- const s=signer({legacyT54Offer:true});await s.arm(quote);
+ const s=signer();await s.arm({...quote,extra:{...quote.extra,areFeesSponsored:false}});
  await assert.rejects(s.signer.sign({...tx,SourceTag:42}),/CPX_WRONG_SOURCE_TAG/);
  assert.equal(s.signed.length,0);
 });
 test('opt-in rejects changed amount without accessing real signer',async()=>{
- const s=signer({legacyT54Offer:true});await s.arm(quote);
+ const s=signer();await s.arm({...quote,extra:{...quote.extra,areFeesSponsored:false}});
  await assert.rejects(s.signer.sign({...tx,Amount:'73137'}),/CPX_WRONG_XRP_AMOUNT/);
  assert.equal(s.signed.length,0);
 });
@@ -46,7 +46,8 @@ test('policy accepts missing fee flag only when explicitly enabled and never Bas
  const strict=createAgentPaymentGate(conf);
  assert.deepEqual(await strict.evaluate({paymentRequired:{x402Version:2},selectedRequirements:quote}),{allowed:false,reason:'CPX_INVALID_FEE_TERMS'});
  const legacy=createAgentPaymentGate({...conf,legacyT54Offer:true});
- assert.equal((await legacy.evaluate({paymentRequired:{x402Version:2},selectedRequirements:quote})).allowed,true);
+ assert.equal((await legacy.evaluate({paymentRequired:{x402Version:2},selectedRequirements:quote})).allowed,false);
+  assert.equal((await legacy.evaluate({paymentRequired:{x402Version:2},selectedRequirements:{...quote,extra:{...quote.extra,areFeesSponsored:false}}})).allowed,true);
  assert.equal((await legacy.evaluate({paymentRequired:{x402Version:2},selectedRequirements:{...quote,network:'eip155:8453'}})).allowed,false);
 });
 test('ledger receipt with bounded SourceTag and no DestinationTag verifies, wrong tag fails',()=>{
