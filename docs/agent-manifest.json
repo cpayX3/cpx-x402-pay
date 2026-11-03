@@ -1,0 +1,51 @@
+{
+  "name": "cpX x402 Pay + Earn",
+  "provider": "cloudpayX",
+  "package": "@cloudpayx/x402-pay",
+  "network": "xrpl:0",
+  "protocol": {
+    "name": "x402",
+    "version": 2,
+    "scheme": "exact"
+  },
+  "assets": [
+    {
+      "symbol": "XRP",
+      "unit": "drops"
+    },
+    {
+      "symbol": "RLUSD",
+      "issuer": "rMxCKbEDwqr76QuheSUMdEGf4B9xJ8m5De"
+    },
+    {
+      "symbol": "USDC",
+      "issuer": "rGm7WCVp9gb4jZHWTEtGUr4dd74z2XuWhE"
+    }
+  ],
+  "pay": {
+    "exports": [
+      "validateSecureNodePurchase",
+      "executeSecureNodePurchase",
+      "reconcileSecureNodePurchase"
+    ],
+    "httpMethod": "POST",
+    "requiresSigner": true,
+    "requiresAuthorization": true
+  },
+  "earn": {
+    "export": "createCpXAgentEarn",
+    "httpMethods": [
+      "GET",
+      "POST"
+    ],
+    "requiresHttpsFacilitator": true,
+    "requiresValidatedSettlement": true
+  },
+  "documentation": [
+    "README.md",
+    "docs/QUICKSTART.md",
+    "docs/API.md",
+    "AGENTS.md"
+  ],
+  "cloudpayxAccountRequired": false
+}
