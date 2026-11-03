@@ -129,7 +129,7 @@ test('budget reservation occurs before any HTTP attempt',tempTest(async d=>{
     reserveBudget:async intentToReserve => reserve(b,intentToReserve),
     createPaymentClient:()=>({oneShotStatus:()=>({}),paidFetch:async()=>{
       assert.equal((await b.inspect(PAYER)).reserved.rlusd,'100000000000000');
-      return {status:200,headers:{has:()=>false}};
+      return new Response('', {status:200});
     }}),request:{url:i.resource,init:{method:'POST'}}});
   assert.equal(output.status,'HTTP_RESPONSE_LEDGER_UNVERIFIED');
   assert.equal((await journal.load(i.intentId)).status,'RESERVED_OUTCOME_UNKNOWN');

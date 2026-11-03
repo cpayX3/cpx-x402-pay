@@ -17,7 +17,7 @@ function transactionExpectation(tx, hash, maxFeeDrops) {
     (Number.isInteger(tx.DestinationTag) && tx.DestinationTag >= 0 && tx.DestinationTag <= 0xffffffff), 'CPX_JOURNAL_BAD_TAG');
   requireCondition(tx.SourceTag === undefined ||
     (Number.isInteger(tx.SourceTag) && tx.SourceTag >= 0 && tx.SourceTag <= 0xffffffff), 'CPX_JOURNAL_BAD_SOURCE_TAG');
-  requireCondition(typeof tx.InvoiceID === 'string' && HEX64.test(tx.InvoiceID), 'CPX_JOURNAL_BAD_INVOICE');
+  requireCondition(tx.InvoiceID === undefined || (typeof tx.InvoiceID === 'string' && HEX64.test(tx.InvoiceID)), 'CPX_JOURNAL_BAD_INVOICE');
   requireCondition(DROPS.test(maxFeeDrops) && BigInt(maxFeeDrops) > 0n, 'CPX_JOURNAL_BAD_FEE_CAP');
   requireCondition(typeof tx.Fee === 'string' && DROPS.test(tx.Fee) && BigInt(tx.Fee) > 0n && BigInt(tx.Fee) <= BigInt(maxFeeDrops), 'CPX_JOURNAL_FEE_EXCEEDS_CAP');
   requireCondition(
@@ -38,7 +38,7 @@ function transactionExpectation(tx, hash, maxFeeDrops) {
   return {transactionHash: hash, payer: tx.Account, recipient: tx.Destination,
     ...(tx.DestinationTag === undefined ? {} : {destinationTag:tx.DestinationTag}),
     ...(tx.SourceTag === undefined ? {} : {sourceTag:tx.SourceTag}),
-    invoiceID: tx.InvoiceID.toUpperCase(),
+    ...(tx.InvoiceID === undefined ? {} : {invoiceID: tx.InvoiceID.toUpperCase()}),
     lastLedgerSequence: tx.LastLedgerSequence,
     asset, ...(issuer === undefined ? {} : {issuer}), amount, maxFeeDrops};
 }
@@ -74,7 +74,7 @@ export function createJournaledSigner({signer, journal, intentId, hashSignedTx, 
  * createPaymentClient MUST return a guarded SDK instance whose oneShot is ON.
  * Returning HTTP 200 is intentionally not treated as validated settlement.
  */
-export async function executeDurablePurchase({journal, intent, signer, hashSignedTx, maxFeeDrops, createPaymentClient, request, reserveBudget}) {
+export async function executeDurablePurchase({journal, intent, signer, hashSignedTx, maxFeeDrops, createPaymentClient, request, reserveBudget, releaseUnsigned}) {
   requireCondition(typeof journal?.reserve === 'function', 'CPX_JOURNAL_REQUIRED');
   requireCondition(typeof createPaymentClient === 'function', 'CPX_CLIENT_FACTORY_REQUIRED');
   requireCondition(typeof reserveBudget === 'function', 'CPX_BUDGET_RESERVATION_REQUIRED');
@@ -83,22 +83,61 @@ export async function executeDurablePurchase({journal, intent, signer, hashSigne
   // Must hold durable capacity before constructing any payment client, HTTP or signer.
   // A crash between intent and budget reservation intentionally blocks retry.
   await reserveBudget(intent);
-  const journaledSigner = createJournaledSigner({signer, journal, intentId: intent.intentId, hashSignedTx, maxFeeDrops});
+  let signingAttempted = false;
+
+  const watchedSigner = {
+    classicAddress: signer.classicAddress,
+    async sign(tx) {
+      signingAttempted = true;
+      return signer.sign(tx);
+    }
+  };
+
+  const journaledSigner = createJournaledSigner({
+    signer: watchedSigner,
+    journal,
+    intentId: intent.intentId,
+    hashSignedTx,
+    maxFeeDrops
+  });
   // Caller must use createCpXX402AgentPay({signer:journaledSigner, policy, oneShot:{...}})
+  try {
   const buyer = await createPaymentClient(journaledSigner);
   requireCondition(typeof buyer?.paidFetch === 'function' && typeof buyer?.oneShotStatus === 'function', 'CPX_ONE_SHOT_CLIENT_REQUIRED');
   // Never retry automatically. If this throws or times out, the intent stays blocked.
   const response = await buyer.paidFetch(request.url, request.init);
   // Capture seller rejection text for diagnostics; never treat it as settlement proof.
   let rejectionBody;
-  if (response.status !== 200) {
+  let responseBody;
+
+  if (response.status === 200) {
+    responseBody = await response.clone().text();
+  } else {
     try { rejectionBody = (await response.clone().text()).slice(0, 2048); }
     catch { rejectionBody = 'SELLER_RESPONSE_BODY_UNAVAILABLE'; }
   }
+
   return {status: 'HTTP_RESPONSE_LEDGER_UNVERIFIED',
-    ...(rejectionBody === undefined ? {} : {rejectionBody}), httpStatus: response.status,
+    ...(rejectionBody === undefined ? {} : {rejectionBody}),
+    ...(responseBody === undefined ? {} : {responseBody}),
+    httpStatus: response.status,
     paymentResponseHeaderPresent: response.headers?.has?.('payment-response') === true,
     journalStatus: (await journal.load(intent.intentId)).status};
+
+  } catch (error) {
+    if (!signingAttempted && typeof releaseUnsigned === 'function') {
+      try {
+        await releaseUnsigned({intent, journal});
+      } catch (releaseError) {
+        throw new AggregateError(
+          [error, releaseError],
+          'CPX_UNSIGNED_RELEASE_NOT_CONFIRMED'
+        );
+      }
+    }
+
+    throw error;
+  }
 }
 
 /** Strict read-only reconciliation. No submission or retry is possible here. */

@@ -8,3 +8,5 @@
 export { executeSecureNodePurchase, validateSecureNodePurchase } from './secure-node-purchase.mjs';
 
 export { reconcileSecureNodePurchase } from './trusted-xrpl-recovery.mjs';
+
+export { createCpXAgentEarn } from "./seller-earn.mjs";

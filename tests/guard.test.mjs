@@ -94,13 +94,23 @@ for (const badNetworkID of [0, 1, 1025, null, '0']) {
     assert.equal(s.count(), 0);
   });
 }
-test('issuer and destination tag must exist in challenge',async()=>{
+test('destination tag is optional, but invalid tags are rejected',async()=>{
   const s=env(); const c=structuredClone(baseOffer); delete c.extra.destinationTag;
-  await assert.rejects(s.arm(c),/CPX_DESTINATION_TAG_REQUIRED/);
+  await s.arm(c);
+  const invalid=env();
+  await assert.rejects(
+    invalid.arm({...baseOffer,extra:{...baseOffer.extra,destinationTag:-1}}),
+    /CPX_INVALID_DESTINATION_TAG/
+  );
 });
-test('challenge must include invoiceId for binding',async()=>{
+test('invoiceId is optional, but empty invoice IDs are rejected',async()=>{
   const s=env(); const c=structuredClone(baseOffer); delete c.extra.invoiceId;
-  await assert.rejects(s.arm(c),/CPX_INVOICE_REQUIRED/);
+  await s.arm(c);
+  const invalid=env();
+  await assert.rejects(
+    invalid.arm({...baseOffer,extra:{...baseOffer.extra,invoiceId:''}}),
+    /CPX_INVALID_INVOICE/
+  );
 });
 test('forbids EVM offer and unknown issuer',async()=>{
   for(const patch of [{network:'eip155:8453'},{extra:{...baseOffer.extra,issuer:'rWrong'}}]) {

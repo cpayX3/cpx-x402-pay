@@ -7,7 +7,7 @@ import { compareAmount } from './policy.js';
 const INT = /^(0|[1-9][0-9]*)$/;
 const ALLOWED_TX_FIELDS = new Set([
     'TransactionType', 'Account', 'Destination', 'DestinationTag', 'SourceTag',
-    'Amount', 'DeliverMax', 'SendMax', 'Fee', 'Flags', 'Sequence',
+    'Amount', 'DeliverMax', 'SendMax', 'Fee', 'Flags', 'Sequence', 'TicketSequence',
     'LastLedgerSequence', 'InvoiceID', 'NetworkID' // xrpl.js may add an undefined property on mainnet.
 ]);
 function requireCondition(condition, error) {
@@ -66,7 +66,7 @@ export function createOneShotXrplSigner(original, options) {
                 requireCondition(fields.DestinationTag === offer.destinationTag, 'CPX_WRONG_DESTINATION_TAG');
                 requireCondition(fields.SourceTag === undefined || offer.sourceTag !== undefined, 'CPX_UNKNOWN_TRANSACTION_FIELD');
                 requireCondition(fields.SourceTag === undefined || fields.SourceTag === offer.sourceTag, 'CPX_WRONG_SOURCE_TAG');
-                requireCondition(typeof fields.InvoiceID === 'string' && fields.InvoiceID.toUpperCase() === offer.invoiceID, 'CPX_WRONG_INVOICE');
+                requireCondition(offer.invoiceID === undefined ? fields.InvoiceID === undefined : typeof fields.InvoiceID === 'string' && fields.InvoiceID.toUpperCase() === offer.invoiceID, 'CPX_WRONG_INVOICE');
                 // XRPL mainnet (xrpl:0) requires NetworkID to be absent from the SIGNED transaction.
                 // Official xrpl.js autofill may supply a JavaScript own-property with value undefined.
                 // Accept that placeholder only; never accept a concrete NetworkID (including zero).
@@ -74,7 +74,12 @@ export function createOneShotXrplSigner(original, options) {
                 requireCondition(!('Paths' in fields) && !('DeliverMin' in fields) && !('Delegate' in fields) && !('Memos' in fields), 'CPX_FORBIDDEN_TRANSACTION_FIELD');
                 requireCondition(fields.Flags === undefined || fields.Flags === 0 || fields.Flags === 0x80000000, 'CPX_FORBIDDEN_FLAGS');
                 requireCondition(validUnsignedDrops(fields.Fee) && BigInt(fields.Fee) > 0n && BigInt(fields.Fee) <= BigInt(options.maxFeeDrops), 'CPX_FEE_EXCEEDS_LIMIT');
-                requireCondition(isUint32(fields.Sequence) && fields.Sequence > 0 && !('TicketSequence' in fields), 'CPX_SEQUENCE_ONLY');
+                if (offer.transferMethod === 'ticketSequence') {
+                    requireCondition(fields.Sequence === 0 && isUint32(fields.TicketSequence) && fields.TicketSequence > 0, 'CPX_INVALID_TICKET_SEQUENCE');
+                }
+                else {
+                    requireCondition(isUint32(fields.Sequence) && fields.Sequence > 0 && !('TicketSequence' in fields), 'CPX_INVALID_SEQUENCE');
+                }
                 requireCondition(isUint32(fields.LastLedgerSequence) && fields.LastLedgerSequence > 0, 'CPX_EXPIRY_REQUIRED');
                 const ledger = await options.getValidatedLedgerIndex();
                 requireCondition(isUint32(ledger) && ledger > 0, 'CPX_LEDGER_CHECK_FAILED');
@@ -116,22 +121,20 @@ export function createOneShotXrplSigner(original, options) {
             started = true; // Reserve immediately; asynchronous hash may yield.
             try {
                 requireCondition(req.network === 'xrpl:0' && req.scheme === 'exact' &&
-                    (req.extra?.areFeesSponsored === false ||
-                        (options.legacyT54Offer === true && req.extra?.areFeesSponsored === undefined)), 'CPX_NOT_XRPL_EXACT');
+                    req.extra?.areFeesSponsored === false, 'CPX_NOT_XRPL_EXACT');
                 requireCondition(req.payTo === options.recipient && req.asset === options.asset && req.amount === options.exactAmount, 'CPX_OFFER_MISMATCH');
                 requireCondition(req.extra?.issuer === options.issuer, 'CPX_OFFER_ISSUER_MISMATCH');
-                requireCondition(req.extra?.assetTransferMethod === undefined || req.extra.assetTransferMethod === 'sequence', 'CPX_TICKETS_NOT_SUPPORTED');
-                requireCondition(isUint32(req.extra?.destinationTag) ||
-                    (options.legacyT54Offer === true && req.extra?.destinationTag === undefined), 'CPX_DESTINATION_TAG_REQUIRED');
-                requireCondition(req.extra?.sourceTag === undefined ||
-                    (options.legacyT54Offer === true && isUint32(req.extra.sourceTag)), 'CPX_SOURCE_TAG_INVALID');
-                requireCondition(typeof req.extra?.invoiceId === 'string' && req.extra.invoiceId.length > 0 && req.extra.invoiceId.length <= 256, 'CPX_INVOICE_REQUIRED');
-                requireCondition(typeof req.maxTimeoutSeconds === 'number' && Number.isInteger(req.maxTimeoutSeconds) && req.maxTimeoutSeconds > 0 && req.maxTimeoutSeconds <= (options.legacyT54Offer === true ? 600 : 120), 'CPX_TIMEOUT_INVALID');
-                const id = await invoiceHash(req.extra.invoiceId);
+                requireCondition(req.extra?.assetTransferMethod === undefined || ['sequence', 'ticketSequence'].includes(req.extra.assetTransferMethod), 'CPX_INVALID_TRANSFER_METHOD');
+                requireCondition(req.extra?.destinationTag === undefined || isUint32(req.extra.destinationTag), 'CPX_INVALID_DESTINATION_TAG');
+                requireCondition(req.extra?.sourceTag === undefined || isUint32(req.extra.sourceTag), 'CPX_SOURCE_TAG_INVALID');
+                requireCondition(req.extra?.invoiceId === undefined || (typeof req.extra.invoiceId === 'string' && req.extra.invoiceId.length > 0 && req.extra.invoiceId.length <= 256), 'CPX_INVALID_INVOICE');
+                requireCondition(typeof req.maxTimeoutSeconds === 'number' && Number.isSafeInteger(req.maxTimeoutSeconds) && req.maxTimeoutSeconds > 0, 'CPX_TIMEOUT_INVALID');
+                const id = req.extra?.invoiceId === undefined ? undefined : await invoiceHash(req.extra.invoiceId);
                 armed = { recipient: req.payTo,
                     ...(req.extra?.destinationTag === undefined ? {} : { destinationTag: req.extra.destinationTag }),
                     ...(req.extra?.sourceTag === undefined ? {} : { sourceTag: req.extra.sourceTag }),
-                    invoiceID: id,
+                    ...(id === undefined ? {} : { invoiceID: id }),
+                    transferMethod: req.extra?.assetTransferMethod === 'ticketSequence' ? 'ticketSequence' : 'sequence',
                     asset: req.asset, issuer: req.extra.issuer, amount: req.amount, timeout: req.maxTimeoutSeconds };
             }
             finally {

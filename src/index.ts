@@ -45,6 +45,9 @@ export function createCpXX402AgentPay(options: {
   }).register(
     'xrpl:0',
     new ExactXrplScheme(signer, {
+      // Use existing XRPL tickets only. Never sign a separate
+      // TicketCreate transaction outside one-shot authorization.
+      ticketCreateCount: 0,
       preparePaymentTransaction: async (transaction, requirements) => {
         if (requirements.network !== "xrpl:0") {
           throw new Error("CPX_XRPL_MAINNET_ONLY");
@@ -76,18 +79,33 @@ export function createCpXX402AgentPay(options: {
             throw new Error("CPX_INVALID_LEDGER_EXPIRY");
           }
 
-          return await ledger.autofill({
+          const maxFeeDrops = options.oneShot?.maxFeeDrops;
+
+          const prepared = await ledger.autofill({
             ...transaction,
             LastLedgerSequence: expiry ?? maxLedger
           });
+
+          // Enforce the authorized limit on the fee returned by autofill.
+          const finalTransaction = prepared;
+          const calculatedFee = finalTransaction.Fee;
+
+          if (
+            typeof calculatedFee !== "string" ||
+            !/^[1-9][0-9]*$/.test(calculatedFee) ||
+            BigInt(calculatedFee) > BigInt(maxFeeDrops ?? "100")
+          ) {
+            throw new Error("CPX_FINAL_FEE_EXCEEDS_LIMIT");
+          }
+
+          return finalTransaction;
         } finally {
           await ledger.disconnect();
         }
       },
 
       wsUrlByNetwork: { 'xrpl:0': 'wss://s1.ripple.com' },
-      // Never let the guarded signer authorize a TicketCreate transaction.
-      ...(guarded ? { ticketCreateCount: 0 } : {})
+      // Official XRPL scheme handles sequence or ticketSequence as advertised.
     })
   );
   client.onBeforePaymentCreation(async ({ paymentRequired, selectedRequirements }) => {
@@ -96,8 +114,9 @@ export function createCpXX402AgentPay(options: {
     if (guarded) {
       try {
         await guarded.arm(selectedRequirements);
-      } catch {
-        return { abort: true, reason: 'CPX_ONE_SHOT_ARM_FAILED' };
+      } catch (error) {
+          console.error('CPX_ONE_SHOT_ARM_ERROR:', error instanceof Error ? error.message : String(error));
+          return { abort: true, reason: 'CPX_ONE_SHOT_ARM_FAILED' };
       }
     }
   });

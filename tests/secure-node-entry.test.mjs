@@ -25,7 +25,7 @@ test('refuses mismatched amount',()=>assert.throws(()=>validateSecureNodePurchas
 test('refuses a mismatched fee ceiling',()=>assert.throws(()=>validateSecureNodePurchase({...fixture(),oneShot:{...fixture().oneShot,maxFeeDrops:'200'}}),/CPX_FEE_CEILING_MISMATCH/));
 test('refuses nonpublic URL before attempting purchase',()=>assert.throws(()=>validateSecureNodePurchase({...fixture(),intent:{...fixture().intent,resource:'https://127.0.0.1/secret'}}),/CPX_PRIVATE_NETWORK_BLOCKED/));
 test('refuses a resource that differs from economic intent',()=>assert.throws(()=>validateSecureNodePurchase({...fixture(),request:{url:'https://other.example.com',init:{method:'POST',body:'{}'}}}),/CPX_RESOURCE_MISMATCH/));
-test('refuses unsigned HTTP method',()=>assert.throws(()=>validateSecureNodePurchase({...fixture(),request:{url,init:{method:'GET',body:'{}'}}}),/CPX_POST_REQUIRED/));
+test('refuses unsigned HTTP method',()=>assert.throws(()=>validateSecureNodePurchase({...fixture(),request:{url,init:{method:'GET',body:'{}'}}}),/CPX_GET_BODY_FORBIDDEN/));
 test('refuses credential-bearing first requests',()=>assert.throws(()=>validateSecureNodePurchase({...fixture(),request:{url,init:{method:'POST',body:'{}',headers:{Authorization:'Bearer wrong'}}}}),/CPX_CREDENTIALS_IN_INITIAL_REQUEST_FORBIDDEN/));
 test('refuses shipping client-supplied payment proof',()=>assert.throws(()=>validateSecureNodePurchase({...fixture(),request:{url,init:{method:'POST',body:'{}',headers:{'payment-signature':'secret'}}}}),/CPX_CREDENTIALS_IN_INITIAL_REQUEST_FORBIDDEN/));
 test('refuses caller-provided hash callback',()=>assert.throws(()=>validateSecureNodePurchase({...fixture(),hashSignedTx:()=> 'F'.repeat(64)}),/CPX_UNSAFE_OPTION_FORBIDDEN/));

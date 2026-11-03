@@ -14,7 +14,7 @@ test('published SDK exposes the intended package identity and entry point', () =
 
 test('package root exposes ONLY secure purchase, validation, and read-only ledger reconciliation', async () => {
   const api = await import(name);
-  assert.deepEqual(Object.keys(api).sort(), ['executeSecureNodePurchase', 'reconcileSecureNodePurchase', 'validateSecureNodePurchase']);
+  assert.deepEqual(Object.keys(api).sort(), ['createCpXAgentEarn', 'executeSecureNodePurchase', 'reconcileSecureNodePurchase', 'validateSecureNodePurchase']);
   assert.equal(typeof api.executeSecureNodePurchase, 'function');
   assert.equal(typeof api.validateSecureNodePurchase, 'function');
   assert.equal(typeof api.reconcileSecureNodePurchase, 'function');

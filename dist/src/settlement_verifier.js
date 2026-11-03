@@ -24,7 +24,7 @@ export function verifyValidatedXrplSettlement(payload, expected) {
     const data = record(outer?.result) ?? outer;
     required(data !== undefined, 'CPX_BAD_LEDGER_RESPONSE');
     required(HASH.test(expected.transactionHash), 'CPX_BAD_EXPECTED_TX_HASH');
-    required(HASH.test(expected.invoiceID), 'CPX_BAD_EXPECTED_INVOICE');
+    required(expected.invoiceID === undefined || HASH.test(expected.invoiceID), 'CPX_BAD_EXPECTED_INVOICE');
     required(typeof expected.payer === 'string' && expected.payer.length > 0 &&
         typeof expected.recipient === 'string' && expected.recipient.length > 0, 'CPX_BAD_EXPECTED_ADDRESSES');
     required(expected.destinationTag === undefined ||
@@ -45,7 +45,7 @@ export function verifyValidatedXrplSettlement(payload, expected) {
     required(tx.Destination === expected.recipient, 'CPX_WRONG_RECIPIENT');
     required(tx.DestinationTag === expected.destinationTag, 'CPX_WRONG_TAG');
     required(tx.SourceTag === expected.sourceTag, 'CPX_WRONG_SOURCE_TAG');
-    required(typeof tx.InvoiceID === 'string' && tx.InvoiceID.toUpperCase() === expected.invoiceID.toUpperCase(), 'CPX_WRONG_INVOICE');
+    required(expected.invoiceID === undefined ? tx.InvoiceID === undefined : typeof tx.InvoiceID === 'string' && tx.InvoiceID.toUpperCase() === expected.invoiceID.toUpperCase(), 'CPX_WRONG_INVOICE');
     required(typeof tx.Fee === 'string' && DROPS.test(tx.Fee) &&
         BigInt(tx.Fee) > 0n && BigInt(tx.Fee) <= BigInt(expected.maxFeeDrops), 'CPX_FEE_MISMATCH');
     required(typeof data.ledger_index === 'number' && Number.isSafeInteger(data.ledger_index) &&
@@ -73,6 +73,6 @@ export function verifyValidatedXrplSettlement(payload, expected) {
         deliveredAmount: expected.amount,
         asset: expected.asset,
         feeDrops: tx.Fee,
-        invoiceID: expected.invoiceID.toUpperCase()
+        ...(expected.invoiceID === undefined ? {} : { invoiceID: expected.invoiceID.toUpperCase() })
     });
 }

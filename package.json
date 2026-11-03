@@ -1,8 +1,8 @@
 {
   "name": "@cloudpayx/x402-pay",
-  "version": "0.2.4",
+  "version": "0.2.10",
   "type": "module",
-  "description": "XRPL-native x402 payment SDK for autonomous AI agents. Secure, wallet-agnostic XRP, RLUSD and Circle USDC payments with spending policies and verified settlement.",
+  "description": "XRPL-native x402 Pay + Earn SDK for autonomous AI agents. Purchase and monetize services using XRP, RLUSD, and Circle USDC with guarded payments and verified XRPL settlement.",
   "dependencies": {
     "@x402/core": "2.28.0",
     "@x402/fetch": "2.28.0",
@@ -39,6 +39,15 @@
     "scripts/trusted-xrpl-recovery.mjs",
     "types/",
     "README.md",
-    "examples/quickstart-validation.mjs"
+    "examples/quickstart-validation.mjs",
+    "scripts/seller-earn.mjs",
+    "scripts/seller-node.mjs",
+    "scripts/seller-http.mjs",
+    "scripts/seller-proof-guard.mjs",
+    "scripts/seller-transaction-guard.mjs",
+    "scripts/seller-ledger-verifier.mjs",
+    "AGENTS.md",
+    "docs/",
+    "examples/earn-http-server.mjs"
   ]
 }
